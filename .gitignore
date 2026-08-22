@@ -5,11 +5,11 @@ logs/
 *.db-journal
 config.json
 
-# 构建产物
+# 构建产物（锚定根目录，避免误伤 cmd/s-ui-next 源码目录）
 release/
 *.exe
-s-ui-next
-s-ui-next-linux-*
+/s-ui-next
+/s-ui-next-linux-*
 
 # 前端（node_modules 与构建产物不入库；dist/index.html 保留占位保证 go build 可用）
 frontend/node_modules/
