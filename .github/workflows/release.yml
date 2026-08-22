@@ -57,19 +57,6 @@ jobs:
           tail -n 60 build.log >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-      # 失败时把构建日志推到 ci-logs 分支，便于匿名查看（临时排查用，稳定后移除）
-      - name: Dump build log on failure
-        if: failure()
-        run: |
-          git config user.name "ci-bot"
-          git config user.email "ci-bot@users.noreply.github.com"
-          git checkout -B ci-logs
-          mkdir -p .ci
-          cp build.log .ci/last-build.log
-          git add .ci
-          git commit -m "build log $(date -u +%FT%TZ)"
-          git push origin ci-logs --force
-
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
