@@ -36,18 +36,26 @@ jobs:
 
       - name: Build backend
         run: |
-          go version
-          VERSION="${GITHUB_REF_NAME#v}"
-          mkdir -p release
-          for arch in amd64 arm64; do
-            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
-              -ldflags "-s -w -X main.Version=${VERSION}" \
-              -o "release/s-ui-next-linux-${arch}" ./cmd/s-ui-next
-            # 包内二进制统一命名为 s-ui-next（install.sh 按此名解压）
-            cp "release/s-ui-next-linux-${arch}" release/s-ui-next
-            cp install.sh release/
-            tar -czf "release/s-ui-next-linux-${arch}.tar.gz" -C release s-ui-next install.sh
-          done
+          set -eo pipefail
+          {
+            go version
+            go env GOOS GOARCH GOTOOLCHAIN
+            VERSION="${GITHUB_REF_NAME#v}"
+            mkdir -p release
+            for arch in amd64 arm64; do
+              CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
+                -ldflags "-s -w -X main.Version=${VERSION}" \
+                -o "release/s-ui-next-linux-${arch}" ./cmd/s-ui-next
+              # 包内二进制统一命名为 s-ui-next（install.sh 按此名解压）
+              cp "release/s-ui-next-linux-${arch}" release/s-ui-next
+              cp install.sh release/
+              tar -czf "release/s-ui-next-linux-${arch}.tar.gz" -C release s-ui-next install.sh
+            done
+          } 2>&1 | tee build.log
+          echo "### Build log" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 60 build.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
