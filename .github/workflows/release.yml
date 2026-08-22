@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version-file: go.mod
 
       - uses: pnpm/action-setup@v4
         with:
@@ -36,6 +36,7 @@ jobs:
 
       - name: Build backend
         run: |
+          go version
           VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p release
           for arch in amd64 arm64; do
