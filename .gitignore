@@ -1,0 +1,21 @@
+# 运行时数据
+data/
+logs/
+*.db
+*.db-journal
+config.json
+
+# 构建产物
+release/
+*.exe
+s-ui-next
+s-ui-next-linux-*
+
+# 前端（node_modules 与构建产物不入库；dist/index.html 保留占位保证 go build 可用）
+frontend/node_modules/
+frontend/dist/assets/
+
+# IDE / 工具
+.idea/
+.vscode/
+.zcode/

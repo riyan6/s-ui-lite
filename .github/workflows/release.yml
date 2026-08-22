@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Build backend
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p release
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath \
+              -ldflags "-s -w -X main.Version=${VERSION}" \
+              -o "release/s-ui-next-linux-${arch}" ./cmd/s-ui-next
+            # 包内二进制统一命名为 s-ui-next（install.sh 按此名解压）
+            cp "release/s-ui-next-linux-${arch}" release/s-ui-next
+            cp install.sh release/
+            tar -czf "release/s-ui-next-linux-${arch}.tar.gz" -C release s-ui-next install.sh
+          done
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/s-ui-next-linux-amd64.tar.gz
+            release/s-ui-next-linux-arm64.tar.gz

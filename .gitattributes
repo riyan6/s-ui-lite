@@ -1,0 +1,6 @@
+# shell 脚本与 CI 配置保持 LF，避免 Windows 换行符破坏 Linux 执行
+*.sh text eol=lf
+*.yml text eol=lf
+*.go text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
