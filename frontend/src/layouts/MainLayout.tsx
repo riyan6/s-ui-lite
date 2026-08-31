@@ -12,7 +12,7 @@ import {
   MoonOutlined,
   SunOutlined,
   LogoutOutlined,
-  ThunderboltOutlined,
+  ThunderboltFilled,
 } from '@ant-design/icons'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
@@ -66,10 +66,10 @@ export default function MainLayout() {
             color: token.colorText,
           }}
         >
-          <ThunderboltOutlined style={{ fontSize: 18, color: token.colorPrimary }} />
+          <ThunderboltFilled style={{ fontSize: 18, color: token.colorPrimary }} />
           {!collapsed && (
             <Text strong style={{ fontSize: 14, letterSpacing: 1 }}>
-              S-UI-NEXT
+              S-UI Next
             </Text>
           )}
         </div>
@@ -100,7 +100,7 @@ export default function MainLayout() {
             onClick={() => setCollapsed((v) => !v)}
           />
           <Space>
-            <Tooltip title={isDark ? '切换亮色主题' : '切换暗色主题'}>
+            <Tooltip title={isDark ? '亮色主题' : '暗色主题'}>
               <Button type="text" icon={isDark ? <SunOutlined /> : <MoonOutlined />} onClick={toggle} />
             </Tooltip>
             <Button
@@ -111,7 +111,7 @@ export default function MainLayout() {
                 navigate('/login')
               }}
             >
-              退出
+              注销
             </Button>
           </Space>
         </Header>
