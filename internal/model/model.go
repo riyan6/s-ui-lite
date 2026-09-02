@@ -24,12 +24,12 @@ type Inbound struct {
 }
 
 // Client 入站下的客户端凭证（SS 存密码 / VLESS 存 UUID）
+// 客户端不提供启用开关：创建后一律启用，仅按 ExpireAt 到期自动从配置中移除。
 type Client struct {
 	ID         uint       `gorm:"primaryKey" json:"id"`
 	InboundID  uint       `gorm:"index" json:"inbound_id"`
 	Name       string     `gorm:"size:128" json:"name"`
 	Credential string     `gorm:"type:text" json:"credential"`
-	Enabled    bool       `json:"enabled"`
 	ExpireAt   *time.Time `json:"expire_at"`
 	Meta       string     `gorm:"type:text" json:"meta"` // JSON 扩展字段，如 vless 单独的 flow
 	CreatedAt  time.Time  `json:"created_at"`

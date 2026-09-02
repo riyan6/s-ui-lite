@@ -65,10 +65,10 @@ func buildInbounds(db *gorm.DB) ([]map[string]any, error) {
 	return result, nil
 }
 
-// activeClients 取启用中且未过期的客户端（到期自动从配置中移除）
+// activeClients 取入站下未过期的客户端（客户端无启用开关，仅按到期时间自动从配置中移除）
 func activeClients(db *gorm.DB, inboundID uint) ([]model.Client, error) {
 	var clients []model.Client
-	if err := db.Where("inbound_id = ? AND enabled = ?", inboundID, true).Order("id").Find(&clients).Error; err != nil {
+	if err := db.Where("inbound_id = ?", inboundID).Order("id").Find(&clients).Error; err != nil {
 		return nil, err
 	}
 	now := time.Now()
@@ -169,7 +169,7 @@ func buildVless(row *model.Inbound, clients []model.Client) (map[string]any, err
 	}
 
 	if len(clients) == 0 {
-		return nil, fmt.Errorf("VLESS 入站 [%s] 至少需要一个启用中的客户端", row.Tag)
+		return nil, fmt.Errorf("VLESS 入站 [%s] 至少需要一个客户端", row.Tag)
 	}
 
 	// 面板扩展字段 flow：入站级默认 flow，客户端 meta.flow 可覆盖

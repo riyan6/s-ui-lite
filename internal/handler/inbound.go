@@ -133,10 +133,9 @@ func createClientsFor(tx *gorm.DB, inbound *model.Inbound, clients *[]clientPayl
 				return err
 			}
 		}
-		enabled := cp.Enabled == nil || *cp.Enabled
 		client := model.Client{
 			InboundID: inbound.ID, Name: *cp.Name, Credential: credential,
-			Enabled: enabled, ExpireAt: cp.ExpireAt,
+			ExpireAt: cp.ExpireAt,
 			Meta: marshalConfig(orEmptyMap(cp.Meta)),
 		}
 		if err := tx.Create(&client).Error; err != nil {
@@ -225,7 +224,6 @@ func (h *Handler) deleteInbound(c *gin.Context) {
 type clientPayload struct {
 	Name       *string        `json:"name"`
 	Credential *string        `json:"credential"`
-	Enabled    *bool          `json:"enabled"`
 	ExpireAt   *time.Time     `json:"expire_at"`
 	Meta       map[string]any `json:"meta"`
 }
@@ -263,10 +261,9 @@ func (h *Handler) createClient(c *gin.Context) {
 			}
 		}
 
-		enabled := payload.Enabled == nil || *payload.Enabled
 		client := model.Client{
 			InboundID: inboundID, Name: *payload.Name, Credential: credential,
-			Enabled: enabled, ExpireAt: payload.ExpireAt,
+			ExpireAt: payload.ExpireAt,
 			Meta: marshalConfig(orEmptyMap(payload.Meta)),
 		}
 		return tx.Create(&client).Error
@@ -296,9 +293,6 @@ func (h *Handler) updateClient(c *gin.Context) {
 		}
 		if payload.Credential != nil {
 			client.Credential = *payload.Credential
-		}
-		if payload.Enabled != nil {
-			client.Enabled = *payload.Enabled
 		}
 		if payload.ExpireAt != nil {
 			client.ExpireAt = payload.ExpireAt

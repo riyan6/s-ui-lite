@@ -5,7 +5,6 @@ export interface Client {
   inbound_id: number
   name: string
   credential: string
-  enabled: boolean
   expire_at: string | null
   meta: string
   created_at: string

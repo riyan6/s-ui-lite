@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Table, Button, Space, Switch, Modal, Form, Input, Select, DatePicker, App as AntdApp, Typography, Tag, Popconfirm } from 'antd'
+import { Table, Button, Space, Modal, Form, Input, Select, DatePicker, App as AntdApp, Typography, Tag, Popconfirm } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ShareAltOutlined, KeyOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import { api } from '../api/client'
@@ -11,7 +11,6 @@ const { Text } = Typography
 interface ClientFormValues {
   name: string
   credential?: string
-  enabled: boolean
   expire_at?: Dayjs | null
   flow?: string
 }
@@ -35,7 +34,6 @@ export default function ClientTable({ inbound, onChanged }: Props) {
   const openCreate = () => {
     setEditing(null)
     form.resetFields()
-    form.setFieldsValue({ enabled: true })
     setModalOpen(true)
   }
 
@@ -53,7 +51,6 @@ export default function ClientTable({ inbound, onChanged }: Props) {
     form.setFieldsValue({
       name: c.name,
       credential: c.credential,
-      enabled: c.enabled,
       expire_at: c.expire_at ? dayjs(c.expire_at) : null,
       flow,
     })
@@ -83,7 +80,6 @@ export default function ClientTable({ inbound, onChanged }: Props) {
       const body = {
         name: v.name,
         credential: v.credential || '', // 留空由后端自动生成
-        enabled: v.enabled,
         expire_at: v.expire_at ? v.expire_at.toISOString() : null,
         meta,
       }
@@ -99,15 +95,6 @@ export default function ClientTable({ inbound, onChanged }: Props) {
       message.error((e as Error).message)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const toggleEnabled = async (c: Client, enabled: boolean) => {
-    try {
-      await api.put(`/clients/${c.id}`, { enabled })
-      onChanged()
-    } catch (e) {
-      message.error((e as Error).message)
     }
   }
 
@@ -130,7 +117,7 @@ export default function ClientTable({ inbound, onChanged }: Props) {
           添加客户端
         </Button>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          {clients.filter((c) => c.enabled).length}/{clients.length} 启用中
+          共 {clients.length} 个客户端
         </Text>
       </Space>
       <Table
@@ -148,12 +135,6 @@ export default function ClientTable({ inbound, onChanged }: Props) {
                 {v}
               </Text>
             ),
-          },
-          {
-            title: '启用',
-            dataIndex: 'enabled',
-            width: 80,
-            render: (v: boolean, c: Client) => <Switch size="small" checked={v} onChange={(nv) => toggleEnabled(c, nv)} />,
           },
           {
             title: '到期时间',
@@ -228,9 +209,6 @@ export default function ClientTable({ inbound, onChanged }: Props) {
           )}
           <Form.Item name="expire_at" label="到期时间（留空永久；到期自动从配置移除）">
             <DatePicker showTime style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="enabled" label="启用" valuePropName="checked">
-            <Switch />
           </Form.Item>
         </Form>
       </Modal>

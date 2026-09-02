@@ -115,7 +115,7 @@ export default function Dashboard() {
 
       {/* CPU / 内存 / 磁盘 */}
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={12}>
           <Card title="CPU">
             <div style={{ textAlign: 'center' }}>
               <Progress type="dashboard" percent={Math.round(status.cpu_percent)} size={160} />
@@ -128,7 +128,7 @@ export default function Dashboard() {
             </div>
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={12}>
           <Card title="内存">
             <div style={{ textAlign: 'center' }}>
               <Progress type="dashboard" percent={Math.round(status.mem_percent)} size={160} />
@@ -141,7 +141,7 @@ export default function Dashboard() {
             </div>
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
+        <Col xs={24} sm={12}>
           <Card title="磁盘（数据目录）">
             <div style={{ textAlign: 'center' }}>
               <Progress type="dashboard" percent={Math.round(diskPercent)} size={160} />
@@ -157,7 +157,7 @@ export default function Dashboard() {
 
       {/* 网络 / 运行时长 */}
       <Row gutter={[16, 16]}>
-        <Col xs={12} sm={6}>
+        <Col xs={24} sm={12}>
           <Card>
             <Statistic
               title="上传速度"
@@ -170,7 +170,7 @@ export default function Dashboard() {
             </Text>
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={24} sm={12}>
           <Card>
             <Statistic
               title="下载速度"
@@ -183,7 +183,7 @@ export default function Dashboard() {
             </Text>
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={24} sm={12}>
           <Card>
             <Statistic
               title="系统运行时长"
@@ -193,7 +193,7 @@ export default function Dashboard() {
             />
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={24} sm={12}>
           <Card>
             <Statistic
               title="面板运行时长"

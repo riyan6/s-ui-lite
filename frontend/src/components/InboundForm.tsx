@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react'
-import { Modal, Form, Input, InputNumber, Select, Space, Switch, Button, Row, Col, App as AntdApp, Typography, Alert } from 'antd'
-import { KeyOutlined, PlusOutlined, MinusCircleOutlined, ReloadOutlined } from '@ant-design/icons'
+import { useEffect, useState, type ReactNode } from 'react'
+import { Modal, Form, Input, InputNumber, Select, Space, Switch, Button, Row, Col, App as AntdApp, Typography, Tooltip, Tag, Alert } from 'antd'
+import {
+  KeyOutlined,
+  PlusOutlined,
+  MinusCircleOutlined,
+  ThunderboltOutlined,
+  InfoCircleOutlined,
+} from '@ant-design/icons'
 import { api } from '../api/client'
 import type { Inbound } from '../api/types'
 
@@ -38,8 +44,8 @@ export interface InboundFormValues {
   // multiplex
   multiplex?: boolean
   multiplex_padding?: boolean
-  // 创建时内联携带的初始客户端
-  clients?: Array<{ name: string; credential?: string; enabled?: boolean }>
+  // 创建时内联携带的初始客户端（客户端一律启用，无启用开关）
+  clients?: Array<{ name: string; credential?: string }>
 }
 
 interface Props {
@@ -47,6 +53,85 @@ interface Props {
   editing: Inbound | null
   onClose: () => void
   onSaved: () => void
+}
+
+/** 统一的分组标题：左侧色块 + 文字 */
+function SectionTitle({ children, extra }: { children: ReactNode; extra?: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        margin: '4px 0 14px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <span
+          style={{
+            display: 'inline-block',
+            width: 3,
+            height: 14,
+            background: 'var(--ant-color-primary)',
+            borderRadius: 2,
+            marginRight: 8,
+          }}
+        />
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{children}</span>
+      </div>
+      {extra && <div>{extra}</div>}
+    </div>
+  )
+}
+
+/**
+ * 内嵌在输入框内部的后缀图标按钮。
+ * 统一用于「随机端口 / 生成密钥对 / 随机 Short ID」，点击后直接把结果填回所在输入框。
+ */
+function SuffixAction({ title, icon, onClick }: { title: string; icon: ReactNode; onClick: () => void }) {
+  return (
+    <Tooltip title={title}>
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label={title}
+        onClick={(e) => {
+          // 阻止冒泡，避免触发 Select 等控件的下拉展开
+          e.preventDefault()
+          e.stopPropagation()
+          onClick()
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onClick()
+          }
+        }}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 20,
+          height: 20,
+          borderRadius: 4,
+          cursor: 'pointer',
+          color: 'var(--ant-color-text-tertiary)',
+          // Select 的箭头容器默认 pointer-events: none，需显式开启才可被点击
+          pointerEvents: 'auto',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = 'var(--ant-color-primary)'
+          e.currentTarget.style.background = 'var(--ant-color-fill-secondary)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = 'var(--ant-color-text-tertiary)'
+          e.currentTarget.style.background = 'transparent'
+        }}
+      >
+        {icon}
+      </span>
+    </Tooltip>
+  )
 }
 
 export default function InboundForm({ open, editing, onClose, onSaved }: Props) {
@@ -128,7 +213,7 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
     if (open && !editing && type === 'vless') {
       const cur = form.getFieldValue('clients') as Array<unknown> | undefined
       if (!cur || cur.length === 0) {
-        form.setFieldsValue({ clients: [{ name: 'client-1', enabled: true }] })
+        form.setFieldsValue({ clients: [{ name: 'client-1' }] })
       }
     }
   }, [open, editing, type, form])
@@ -215,7 +300,6 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
         body.clients = inlineClients.map((c) => ({
           name: c.name.trim(),
           credential: c.credential || '',
-          enabled: c.enabled ?? true,
         }))
       }
       if (editing) {
@@ -233,6 +317,8 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
     }
   }
 
+  const isSS2022 = SS2022.has(method ?? '')
+
   return (
     <Modal
       title={editing ? '编辑入站' : '新建入站'}
@@ -244,14 +330,15 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
       destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={onFinish}>
-        {/* 基本信息 */}
+        {/* ============== 基本信息 ============== */}
+        <SectionTitle>基本信息</SectionTitle>
         <Row gutter={16}>
-          <Col span={6}>
-            <Form.Item name="tag" label="Tag" rules={[{ required: true }]} style={{ marginRight: 0 }}>
-              <Input placeholder="如 vless-in" />
+          <Col span={10}>
+            <Form.Item name="tag" label="Tag" rules={[{ required: true, message: '请输入 Tag' }]}>
+              <Input placeholder="如 vless-in" allowClear />
             </Form.Item>
           </Col>
-          <Col span={5}>
+          <Col span={8}>
             <Form.Item name="type" label="协议" rules={[{ required: true }]}>
               <Select
                 disabled={!!editing}
@@ -264,189 +351,330 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
             </Form.Item>
           </Col>
           <Col span={6}>
-            <Form.Item label="端口" required>
-              <Space.Compact style={{ width: '100%' }}>
-                <Form.Item name="port" noStyle rules={[{ required: true }]}>
-                  <InputNumber min={1} max={65535} style={{ width: 'calc(100% - 64px)' }} />
-                </Form.Item>
-                <Button icon={<ReloadOutlined />} onClick={genPort} style={{ width: 64 }}>
-                  随机
-                </Button>
-              </Space.Compact>
-            </Form.Item>
-          </Col>
-          <Col span={4}>
-            <Form.Item name="listen" label="监听" initialValue="::">
-              <Input placeholder="::" />
-            </Form.Item>
-          </Col>
-          <Col span={3}>
             <Form.Item name="enabled" label="启用" valuePropName="checked" initialValue={true}>
               <Switch />
             </Form.Item>
           </Col>
         </Row>
+        <Row gutter={16}>
+          <Col span={10}>
+            <Form.Item name="listen" label="监听地址" initialValue="::" tooltip="默认 :: 表示同时监听 IPv4 与 IPv6">
+              <Input placeholder="::" allowClear />
+            </Form.Item>
+          </Col>
+          <Col span={14}>
+            <Form.Item
+              name="port"
+              label="监听端口"
+              rules={[{ required: true, message: '请输入端口' }]}
+              tooltip="1 - 65535，点击输入框内右侧图标可随机生成"
+            >
+              <InputNumber
+                min={1}
+                max={65535}
+                style={{ width: '100%' }}
+                placeholder="10000 - 65535"
+                suffix={<SuffixAction title="随机生成端口" icon={<ThunderboltOutlined />} onClick={genPort} />}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
-        {/* Shadowsocks */}
-        {type === 'shadowsocks' && (
+        {/* ============== 协议配置 ============== */}
+        <SectionTitle>{type === 'shadowsocks' ? 'Shadowsocks 配置' : 'VLESS Reality 配置'}</SectionTitle>
+
+        {type === 'shadowsocks' ? (
           <>
             <Row gutter={16}>
-              <Col span={10}>
-                <Form.Item name="method" label="加密方式" rules={[{ required: true }]}>
+              <Col span={14}>
+                <Form.Item
+                  name="method"
+                  label="加密方式"
+                  rules={[{ required: true, message: '请选择加密方式' }]}
+                  tooltip="推荐使用 2022 系列，更安全且抗审计"
+                >
                   <Select options={SS_METHODS} />
                 </Form.Item>
               </Col>
-              <Col span={6}>
-                <Form.Item name="network" label="网络（可选）">
-                  <Select allowClear options={[{ label: 'tcp', value: 'tcp' }, { label: 'udp', value: 'udp' }]} />
+              <Col span={10}>
+                <Form.Item name="network" label="传输网络" tooltip="留空则同时使用 TCP 与 UDP">
+                  <Select
+                    allowClear
+                    placeholder="默认 TCP + UDP"
+                    options={[
+                      { label: 'TCP', value: 'tcp' },
+                      { label: 'UDP', value: 'udp' },
+                    ]}
+                  />
                 </Form.Item>
               </Col>
             </Row>
-            <Form.Item label={SS2022.has(method ?? '') ? '服务端密钥（2022 系必填）' : '密码'} required>
-              <Space.Compact style={{ width: '100%' }}>
-                <Form.Item name="password" noStyle rules={[{ required: true, message: '请填写密码/密钥' }]}>
-                  <Input style={{ width: 'calc(100% - 76px)' }} placeholder="2022 系需定长 base64 密钥" />
-                </Form.Item>
-                <Button icon={<KeyOutlined />} onClick={genSSKey} style={{ width: 76 }}>
-                  生成
-                </Button>
-              </Space.Compact>
+            <Form.Item
+              name="password"
+              label={isSS2022 ? '服务端密钥（2022 系必填）' : '密码'}
+              rules={[{ required: true, message: '请填写密钥/密码' }]}
+              tooltip={
+                isSS2022
+                  ? '2022 系密钥为定长 base64，点击输入框内右侧图标可随机生成'
+                  : '客户端连接所需的密码，点击输入框内右侧图标可随机生成'
+              }
+            >
+              <Input
+                placeholder={isSS2022 ? '定长 base64 密钥' : '任意字符串'}
+                allowClear
+                suffix={<SuffixAction title="随机生成密钥" icon={<KeyOutlined />} onClick={genSSKey} />}
+              />
             </Form.Item>
           </>
-        )}
-
-        {/* VLESS Reality */}
-        {type === 'vless' && (
+        ) : (
           <>
             <Row gutter={16}>
               <Col span={6}>
-                <Form.Item name="flow" label="Flow">
-                  <Select allowClear placeholder="可选" options={[{ label: 'xtls-rprx-vision', value: 'xtls-rprx-vision' }]} />
+                <Form.Item name="flow" label="Flow" tooltip="推荐 xtls-rprx-vision，开启后支持多路复用">
+                  <Select
+                    allowClear
+                    placeholder="可选"
+                    options={[{ label: 'xtls-rprx-vision', value: 'xtls-rprx-vision' }]}
+                  />
                 </Form.Item>
               </Col>
               <Col span={9}>
-                <Form.Item name="server_name" label="SNI（server_name）" rules={[{ required: true, message: '必填' }]}>
-                  <Input placeholder="如 www.microsoft.com" />
+                <Form.Item
+                  name="server_name"
+                  label="SNI"
+                  rules={[{ required: true, message: '请输入 SNI' }]}
+                  tooltip="TLS 握手时使用的域名，需是握手目标支持的合法证书域"
+                >
+                  <Input placeholder="如 www.microsoft.com" allowClear />
                 </Form.Item>
               </Col>
               <Col span={9}>
-                <Form.Item name="handshake_server" label="握手目标" rules={[{ required: true, message: '必填' }]}>
-                  <Input placeholder="如 www.microsoft.com（端口固定 443）" />
+                <Form.Item
+                  name="handshake_server"
+                  label="握手目标"
+                  rules={[{ required: true, message: '请输入握手目标' }]}
+                  tooltip="用于 TLS 握手转发的目标域名，端口固定 443"
+                >
+                  <Input
+                    placeholder="如 www.microsoft.com"
+                    allowClear
+                    suffix={
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        :443
+                      </Text>
+                    }
+                  />
                 </Form.Item>
               </Col>
             </Row>
+
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item label="Private Key" required>
-                  <Space.Compact style={{ width: '100%' }}>
-                    <Form.Item name="private_key" noStyle rules={[{ required: true, message: '需要 Reality 私钥' }]}>
-                      <Input style={{ width: 'calc(100% - 116px)' }} placeholder="X25519 私钥" />
-                    </Form.Item>
-                    <Button icon={<KeyOutlined />} onClick={genKeypair} style={{ width: 116 }}>
-                      生成密钥对
-                    </Button>
-                  </Space.Compact>
+                <Form.Item
+                  name="private_key"
+                  label="Private Key（Reality 私钥）"
+                  rules={[{ required: true, message: '需要 Reality 私钥' }]}
+                  tooltip="X25519 私钥，与客户端的 Public Key 配对使用；点击输入框内右侧图标可随机生成密钥对"
+                >
+                  <Input
+                    placeholder="X25519 私钥"
+                    allowClear
+                    suffix={
+                      <SuffixAction title="随机生成密钥对" icon={<KeyOutlined />} onClick={genKeypair} />
+                    }
+                  />
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item label="Public Key（客户端用，自动推导）">
-                  <Input value={pubKey} readOnly placeholder="由私钥自动推导" suffix={pubKey ? <Text copyable={{ text: pubKey }} /> : undefined} />
+                <Form.Item label="Public Key" tooltip="由私钥自动推导，供客户端配置使用">
+                  <Input
+                    value={pubKey}
+                    readOnly
+                    placeholder={privateKey ? '推导中…' : '填写私钥后自动生成'}
+                    status={pubKey ? undefined : privateKey ? 'warning' : undefined}
+                  />
                 </Form.Item>
               </Col>
             </Row>
-            <Form.Item name="short_id" label="Short ID（可多个）" rules={[{ required: true, message: '至少一个 short_id' }]}>
+
+            <Form.Item
+              name="short_id"
+              label={
+                <Space size={6}>
+                  <span>Short ID</span>
+                  <Text type="secondary" style={{ fontSize: 12, fontWeight: 'normal' }}>
+                    回车添加，0-8 位十六进制
+                  </Text>
+                </Space>
+              }
+              rules={[{ required: true, message: '至少一个 Short ID' }]}
+            >
               <Select
                 mode="tags"
                 open={false}
-                placeholder="回车添加，0-8 位十六进制"
+                placeholder="回车输入 Hex 短 ID"
                 suffixIcon={
-                  <Button type="text" size="small" icon={<PlusOutlined />} onClick={genShortID}>
-                    随机
-                  </Button>
+                  <SuffixAction
+                    title="随机生成一个 Short ID"
+                    icon={<PlusOutlined />}
+                    onClick={genShortID}
+                  />
                 }
+                tagRender={(props) => {
+                  const { label, closable, onClose } = props
+                  return (
+                    <Tag
+                      closable={closable}
+                      onClose={onClose}
+                      style={{ marginInlineEnd: 4, fontFamily: 'monospace' }}
+                    >
+                      {label}
+                    </Tag>
+                  )
+                }}
               />
             </Form.Item>
           </>
         )}
 
-        {/* 多路复用 */}
-        <Row gutter={16}>
-          <Col span={6}>
-            <Form.Item name="multiplex" label="多路复用" valuePropName="checked">
-              <Switch />
+        {/* ============== 多路复用 ============== */}
+        <SectionTitle
+          extra={
+            <Form.Item name="multiplex" valuePropName="checked" noStyle>
+              <Switch size="small" />
             </Form.Item>
-          </Col>
-          {multiplex && (
-            <Col span={6}>
-              <Form.Item name="multiplex_padding" label="填充 (padding)" valuePropName="checked">
+          }
+        >
+          <Space size={8}>
+            <span>多路复用</span>
+            <Text type="secondary" style={{ fontSize: 12, fontWeight: 'normal' }}>
+              在单条 TCP 连接上并发传输多条数据流
+            </Text>
+          </Space>
+        </SectionTitle>
+        {multiplex && (
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                name="multiplex_padding"
+                label="启用填充 (padding)"
+                valuePropName="checked"
+                tooltip="为每个数据包填充随机字节以混淆流量特征"
+              >
                 <Switch />
               </Form.Item>
             </Col>
-          )}
-        </Row>
+          </Row>
+        )}
 
-        {/* 初始客户端（仅创建模式） */}
+        {/* ============== 初始客户端 ============== */}
         {!editing && (
           <>
-            <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 8 }}>
+            <SectionTitle extra={<Text type="secondary" style={{ fontSize: 12 }}>保存后将随入站一并创建</Text>}>
               初始客户端
-            </Typography.Title>
-            <Form.List name="clients">
-              {(fields, { add, remove }) => (
-                <>
-                  {fields.map(({ key, name, ...restField }) => (
-                    <Row key={key} gutter={8} align="middle">
-                      <Col span={7}>
-                        <Form.Item
-                          {...restField}
-                          name={[name, 'name']}
-                          rules={[{ required: true, message: '名称必填' }]}
-                          style={{ marginRight: 0 }}
-                        >
-                          <Input placeholder="客户端名称" />
-                        </Form.Item>
-                      </Col>
-                      <Col span={13}>
-                        <Form.Item {...restField} name={[name, 'credential']} style={{ marginRight: 0 }}>
-                          <Input placeholder={type === 'vless' ? 'UUID（留空自动生成）' : '密钥（留空自动生成）'} />
-                        </Form.Item>
-                      </Col>
-                      <Col span={3}>
-                        <Form.Item {...restField} name={[name, 'enabled']} valuePropName="checked" initialValue={true} style={{ marginRight: 0 }}>
-                          <Switch size="small" />
-                        </Form.Item>
-                      </Col>
-                      <Col span={1}>
-                        <Button
-                          type="text"
-                          color="danger"
-                          icon={<MinusCircleOutlined />}
-                          onClick={() => remove(name)}
-                          disabled={type === 'vless' && fields.length === 1}
-                        />
-                      </Col>
-                    </Row>
-                  ))}
-                  <Button size="small" icon={<PlusOutlined />} onClick={() => add({ name: '', enabled: true })} style={{ marginBottom: 8 }}>
-                    添加客户端
-                  </Button>
-                </>
-              )}
-            </Form.List>
+            </SectionTitle>
+            <div
+              style={{
+                padding: 12,
+                background: 'var(--ant-color-fill-quaternary)',
+                borderRadius: 6,
+                border: '1px dashed var(--ant-color-border-secondary)',
+              }}
+            >
+              <Form.List name="clients">
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.map(({ key, name, ...restField }) => (
+                      <Row key={key} gutter={12} align="middle" style={{ marginBottom: 10 }}>
+                        <Col span={11}>
+                          <Form.Item
+                            {...restField}
+                            name={[name, 'name']}
+                            rules={[{ required: true, message: '名称必填' }]}
+                            noStyle
+                          >
+                            <Input placeholder="客户端名称" />
+                          </Form.Item>
+                        </Col>
+                        <Col span={11}>
+                          <Form.Item {...restField} name={[name, 'credential']} noStyle>
+                            <Input
+                              placeholder={
+                                type === 'vless' ? 'UUID（留空自动生成）' : '密钥（留空自动生成）'
+                              }
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col span={2} style={{ textAlign: 'center' }}>
+                          <Tooltip
+                            title={
+                              type === 'vless' && fields.length === 1
+                                ? 'VLESS 入站至少保留一个客户端'
+                                : '删除该客户端'
+                            }
+                          >
+                            <Button
+                              type="text"
+                              danger
+                              icon={<MinusCircleOutlined />}
+                              onClick={() => remove(name)}
+                              disabled={type === 'vless' && fields.length === 1}
+                            />
+                          </Tooltip>
+                        </Col>
+                      </Row>
+                    ))}
+                    {fields.length === 0 && (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        暂无客户端，点击下方按钮添加（留空凭证将由后端自动生成）
+                      </Text>
+                    )}
+                    <Button
+                      size="small"
+                      type="dashed"
+                      icon={<PlusOutlined />}
+                      onClick={() => add({ name: '' })}
+                      block
+                      style={{ marginTop: 4 }}
+                    >
+                      添加客户端
+                    </Button>
+                  </>
+                )}
+              </Form.List>
+            </div>
           </>
         )}
+
         {editing && (
           <Alert
             type="info"
             showIcon
-            style={{ marginBottom: 12 }}
-            title="客户端管理：保存后回到入站列表，点击行首展开箭头或「客户端」数量即可添加/编辑/分享客户端"
+            icon={<InfoCircleOutlined />}
+            style={{ marginTop: 8, marginBottom: 4 }}
+            message="客户端在列表中管理"
+            description="保存后回到入站列表，点击行首展开箭头或「客户端」数量即可添加、编辑、分享或删除客户端。"
           />
         )}
 
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          保存后将自动生成 sing-box 配置并重启核心，校验失败会保留原配置。
-        </Text>
+        {/* ============== 底部提示 ============== */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginTop: 20,
+            padding: '8px 12px',
+            background: 'var(--ant-color-fill-quaternary)',
+            borderRadius: 6,
+            fontSize: 12,
+          }}
+        >
+          <InfoCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
+          <Text type="secondary">
+            保存后将自动生成 sing-box 配置并重启核心，校验失败将保留原配置。
+          </Text>
+        </div>
       </Form>
     </Modal>
   )

@@ -120,18 +120,10 @@ export default function Inbounds() {
             width: 120,
             render: (_, r) => {
               const cs = r.clients ?? []
-              const enabled = cs.filter((c) => c.enabled).length
               return (
-                <Space size={4}>
-                  <Button type="link" size="small" style={{ padding: 0 }} onClick={() => toggleExpand(r.id)}>
-                    {cs.length} 个
-                  </Button>
-                  {enabled !== cs.length && (
-                    <Tag color="orange" style={{ margin: 0 }}>
-                      部分停用
-                    </Tag>
-                  )}
-                </Space>
+                <Button type="link" size="small" style={{ padding: 0 }} onClick={() => toggleExpand(r.id)}>
+                  {cs.length} 个
+                </Button>
               )
             },
           },
