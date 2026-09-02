@@ -13,12 +13,12 @@ import type { Inbound } from '../api/types'
 const { Text } = Typography
 
 const SS_METHODS = [
-  { label: '2022-blake3-aes-128-gcm（推荐）', value: '2022-blake3-aes-128-gcm' },
-  { label: '2022-blake3-aes-256-gcm（推荐）', value: '2022-blake3-aes-256-gcm' },
+  { label: '2022-blake3-aes-128-gcm', value: '2022-blake3-aes-128-gcm' },
+  { label: '2022-blake3-aes-256-gcm', value: '2022-blake3-aes-256-gcm' },
   { label: '2022-blake3-chacha20-poly1305', value: '2022-blake3-chacha20-poly1305' },
-  { label: 'aes-128-gcm（传统，单密码）', value: 'aes-128-gcm' },
-  { label: 'aes-256-gcm（传统，单密码）', value: 'aes-256-gcm' },
-  { label: 'chacha20-ietf-poly1305（传统，单密码）', value: 'chacha20-ietf-poly1305' },
+  { label: 'aes-128-gcm', value: 'aes-128-gcm' },
+  { label: 'aes-256-gcm', value: 'aes-256-gcm' },
+  { label: 'chacha20-ietf-poly1305', value: 'chacha20-ietf-poly1305' },
 ]
 
 const SS2022 = new Set(['2022-blake3-aes-128-gcm', '2022-blake3-aes-256-gcm', '2022-blake3-chacha20-poly1305'])
@@ -230,8 +230,30 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
 
   const genKeypair = async () => {
     try {
-      const r = await api.get<{ private_key: string }>('/tools/reality-keypair')
+      const r = await api.get<{ private_key: string; public_key: string }>('/tools/reality-keypair')
       form.setFieldsValue({ private_key: r.private_key }) // 公钥由推导 effect 自动填充
+      if (r.public_key) setPubKey(r.public_key)
+    } catch (e) {
+      message.error((e as Error).message)
+    }
+  }
+
+  const genClientCredential = async (index: number) => {
+    try {
+      if (type === 'vless') {
+        const r = await api.get<{ uuid: string }>('/tools/uuid')
+        const curClients = (form.getFieldValue('clients') as Array<{ name: string; credential?: string }> | undefined) ?? []
+        const nextClients = [...curClients]
+        nextClients[index] = { ...nextClients[index], credential: r.uuid }
+        form.setFieldsValue({ clients: nextClients })
+      } else {
+        if (!method) return
+        const r = await api.get<{ key: string }>('/tools/ss-key', { method })
+        const curClients = (form.getFieldValue('clients') as Array<{ name: string; credential?: string }> | undefined) ?? []
+        const nextClients = [...curClients]
+        nextClients[index] = { ...nextClients[index], credential: r.key }
+        form.setFieldsValue({ clients: nextClients })
+      }
     } catch (e) {
       message.error((e as Error).message)
     }
@@ -372,6 +394,7 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
               <InputNumber
                 min={1}
                 max={65535}
+                controls={false}
                 style={{ width: '100%' }}
                 placeholder="10000 - 65535"
                 suffix={<SuffixAction title="随机生成端口" icon={<ThunderboltOutlined />} onClick={genPort} />}
@@ -472,7 +495,7 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
               <Col span={12}>
                 <Form.Item
                   name="private_key"
-                  label="Private Key（Reality 私钥）"
+                  label="Private Key"
                   rules={[{ required: true, message: '需要 Reality 私钥' }]}
                   tooltip="X25519 私钥，与客户端的 Public Key 配对使用；点击输入框内右侧图标可随机生成密钥对"
                 >
@@ -486,12 +509,15 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item label="Public Key" tooltip="由私钥自动推导，供客户端配置使用">
+                <Form.Item label="Public Key" tooltip="由私钥自动推导，供客户端配置使用；点击输入框内右侧图标可随机生成密钥对">
                   <Input
                     value={pubKey}
                     readOnly
                     placeholder={privateKey ? '推导中…' : '填写私钥后自动生成'}
                     status={pubKey ? undefined : privateKey ? 'warning' : undefined}
+                    suffix={
+                      <SuffixAction title="随机生成密钥对" icon={<KeyOutlined />} onClick={genKeypair} />
+                    }
                   />
                 </Form.Item>
               </Col>
@@ -545,12 +571,7 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
             </Form.Item>
           }
         >
-          <Space size={8}>
-            <span>多路复用</span>
-            <Text type="secondary" style={{ fontSize: 12, fontWeight: 'normal' }}>
-              在单条 TCP 连接上并发传输多条数据流
-            </Text>
-          </Space>
+          多路复用
         </SectionTitle>
         {multiplex && (
           <Row gutter={16}>
@@ -567,11 +588,11 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
           </Row>
         )}
 
-        {/* ============== 初始客户端 ============== */}
+        {/* ============== 客户端列表 ============== */}
         {!editing && (
           <>
             <SectionTitle extra={<Text type="secondary" style={{ fontSize: 12 }}>保存后将随入站一并创建</Text>}>
-              初始客户端
+              客户端列表
             </SectionTitle>
             <div
               style={{
@@ -601,6 +622,13 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
                             <Input
                               placeholder={
                                 type === 'vless' ? 'UUID（留空自动生成）' : '密钥（留空自动生成）'
+                              }
+                              suffix={
+                                <SuffixAction
+                                  title={type === 'vless' ? '生成 UUID' : '生成密钥'}
+                                  icon={<KeyOutlined />}
+                                  onClick={() => genClientCredential(name)}
+                                />
                               }
                             />
                           </Form.Item>
@@ -656,25 +684,6 @@ export default function InboundForm({ open, editing, onClose, onSaved }: Props) 
             description="保存后回到入站列表，点击行首展开箭头或「客户端」数量即可添加、编辑、分享或删除客户端。"
           />
         )}
-
-        {/* ============== 底部提示 ============== */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            marginTop: 20,
-            padding: '8px 12px',
-            background: 'var(--ant-color-fill-quaternary)',
-            borderRadius: 6,
-            fontSize: 12,
-          }}
-        >
-          <InfoCircleOutlined style={{ color: 'var(--ant-color-text-tertiary)' }} />
-          <Text type="secondary">
-            保存后将自动生成 sing-box 配置并重启核心，校验失败将保留原配置。
-          </Text>
-        </div>
       </Form>
     </Modal>
   )

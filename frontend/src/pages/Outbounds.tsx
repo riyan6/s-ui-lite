@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Card, Table, Button, Space, Switch, Tag, Popconfirm, Modal, Form, Input, InputNumber, Select, App as AntdApp, Typography } from 'antd'
+import { Card, Table, Button, Space, Switch, Tag, Popconfirm, Modal, Form, Input, InputNumber, Select, App as AntdApp, Typography, Row, Col } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 import type { Outbound } from '../api/types'
@@ -74,7 +74,13 @@ export default function Outbounds() {
   const openCreate = () => {
     setEditing(null)
     form.resetFields()
-    form.setFieldsValue({ type: 'shadowsocks', enabled: true, version: '5', network: undefined })
+    form.setFieldsValue({
+      type: 'shadowsocks',
+      enabled: true,
+      method: '2022-blake3-aes-256-gcm',
+      version: '5',
+      network: undefined,
+    })
     setModalOpen(true)
   }
 
@@ -242,56 +248,90 @@ export default function Outbounds() {
         onCancel={() => setModalOpen(false)}
         onOk={() => form.submit()}
         confirmLoading={saving}
+        width={640}
         destroyOnHidden
       >
         <Form form={form} layout="vertical" onFinish={onFinish}>
-          <Space size={16} style={{ display: 'flex' }}>
-            <Form.Item name="tag" label="Tag" rules={[{ required: true }]} style={{ width: 220 }}>
-              <Input placeholder="如 chain-socks" />
-            </Form.Item>
-            <Form.Item name="type" label="类型" rules={[{ required: true }]} style={{ width: 240 }}>
-              <Select options={TYPES} disabled={!!editing} />
-            </Form.Item>
-            <Form.Item name="enabled" label="启用" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-          </Space>
+          <Row gutter={16}>
+            <Col span={10}>
+              <Form.Item name="tag" label="Tag" rules={[{ required: true, message: '请输入 Tag' }]}>
+                <Input placeholder="如 chain-socks" allowClear />
+              </Form.Item>
+            </Col>
+            <Col span={10}>
+              <Form.Item name="type" label="类型" rules={[{ required: true }]}>
+                <Select options={TYPES} disabled={!!editing} />
+              </Form.Item>
+            </Col>
+            <Col span={4}>
+              <Form.Item name="enabled" label="启用" valuePropName="checked" initialValue={true}>
+                <Switch />
+              </Form.Item>
+            </Col>
+          </Row>
 
           {(type === 'shadowsocks' || type === 'socks') && (
             <>
-              <Space size={16} style={{ display: 'flex' }} align="start">
-                <Form.Item name="server" label="服务器地址" rules={[{ required: true }]} style={{ width: 260 }}>
-                  <Input placeholder="上游代理地址" />
-                </Form.Item>
-                <Form.Item name="server_port" label="端口" rules={[{ required: true }]} style={{ width: 120 }}>
-                  <InputNumber min={1} max={65535} style={{ width: '100%' }} />
-                </Form.Item>
-                <Form.Item name="network" label="网络（可选）" style={{ width: 140 }}>
-                  <Select allowClear options={[{ label: 'tcp', value: 'tcp' }, { label: 'udp', value: 'udp' }]} />
-                </Form.Item>
-              </Space>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item name="server" label="服务器地址" rules={[{ required: true, message: '请输入服务器地址' }]}>
+                    <Input placeholder="上游代理地址" allowClear />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="server_port" label="端口" rules={[{ required: true, message: '请输入端口' }]}>
+                    <InputNumber min={1} max={65535} controls={false} style={{ width: '100%' }} placeholder="端口" />
+                  </Form.Item>
+                </Col>
+                <Col span={6}>
+                  <Form.Item name="network" label="网络（可选）">
+                    <Select
+                      allowClear
+                      placeholder="默认"
+                      options={[
+                        { label: 'TCP', value: 'tcp' },
+                        { label: 'UDP', value: 'udp' },
+                      ]}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
               {type === 'shadowsocks' && (
-                <Space size={16} style={{ display: 'flex' }} align="start">
-                  <Form.Item name="method" label="加密方式" rules={[{ required: true }]} style={{ width: 280 }}>
-                    <Select options={SS_METHODS.map((m) => ({ label: m, value: m }))} />
-                  </Form.Item>
-                  <Form.Item name="password" label="密码" rules={[{ required: true }]} style={{ width: 260 }}>
-                    <Input.Password />
-                  </Form.Item>
-                </Space>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Form.Item name="method" label="加密方式" rules={[{ required: true, message: '请选择加密方式' }]}>
+                      <Select options={SS_METHODS.map((m) => ({ label: m, value: m }))} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="password" label="密码" rules={[{ required: true, message: '请输入密码' }]}>
+                      <Input.Password placeholder="密码" allowClear />
+                    </Form.Item>
+                  </Col>
+                </Row>
               )}
               {type === 'socks' && (
-                <Space size={16} style={{ display: 'flex' }} align="start">
-                  <Form.Item name="version" label="SOCKS 版本" style={{ width: 140 }}>
-                    <Select allowClear options={['5', '4a', '4'].map((v) => ({ label: 'v' + v, value: v }))} />
-                  </Form.Item>
-                  <Form.Item name="username" label="用户名（可选）" style={{ width: 200 }}>
-                    <Input />
-                  </Form.Item>
-                  <Form.Item name="password" label="密码（可选）" style={{ width: 200 }}>
-                    <Input.Password />
-                  </Form.Item>
-                </Space>
+                <Row gutter={16}>
+                  <Col span={6}>
+                    <Form.Item name="version" label="SOCKS 版本">
+                      <Select
+                        allowClear
+                        placeholder="v5"
+                        options={['5', '4a', '4'].map((v) => ({ label: 'v' + v, value: v }))}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={9}>
+                    <Form.Item name="username" label="用户名（可选）">
+                      <Input placeholder="用户名" allowClear />
+                    </Form.Item>
+                  </Col>
+                  <Col span={9}>
+                    <Form.Item name="password" label="密码（可选）">
+                      <Input.Password placeholder="密码" allowClear />
+                    </Form.Item>
+                  </Col>
+                </Row>
               )}
               <Form.Item name="extra" label="额外字段（JSON 对象，合并进配置，可选）">
                 <Input.TextArea rows={3} placeholder='如 {"udp_over_tcp": true}' />
@@ -299,7 +339,7 @@ export default function Outbounds() {
             </>
           )}
           {(type === 'direct' || type === 'block') && (
-            <Paragraph type="secondary">
+            <Paragraph type="secondary" style={{ marginTop: 8 }}>
               {type === 'direct' ? '直连出站，无额外配置。' : '阻断出站，无额外配置。'}
             </Paragraph>
           )}

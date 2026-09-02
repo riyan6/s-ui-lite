@@ -50,6 +50,7 @@ export default function MainLayout() {
         onCollapse={setCollapsed}
         trigger={null}
         width={208}
+        collapsedWidth={60}
         style={{
           background: token.colorBgContainer,
           borderRight: `1px solid ${token.colorSplit}`,
@@ -60,8 +61,8 @@ export default function MainLayout() {
             height: 48,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-start',
-            padding: collapsed ? '0 24px' : '0 20px',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            padding: collapsed ? 0 : '0 20px',
             gap: 8,
             color: token.colorText,
           }}

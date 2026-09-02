@@ -30,7 +30,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         locale={zhCN}
         theme={{
           algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
-          token: { borderRadius: 6 },
+          token: { borderRadius: 6, colorPrimary: '#1677ff' },
+          components: {
+            Menu: {
+              itemSelectedBg: '#1677ff',
+              itemSelectedColor: '#ffffff',
+            },
+          },
         }}
       >
         <AntdApp>{children}</AntdApp>

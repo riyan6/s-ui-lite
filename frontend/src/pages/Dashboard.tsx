@@ -115,7 +115,7 @@ export default function Dashboard() {
 
       {/* CPU / 内存 / 磁盘 */}
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12}>
+        <Col xs={24} sm={8}>
           <Card title="CPU">
             <div style={{ textAlign: 'center' }}>
               <Progress type="dashboard" percent={Math.round(status.cpu_percent)} size={160} />
@@ -128,7 +128,7 @@ export default function Dashboard() {
             </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12}>
+        <Col xs={24} sm={8}>
           <Card title="内存">
             <div style={{ textAlign: 'center' }}>
               <Progress type="dashboard" percent={Math.round(status.mem_percent)} size={160} />
@@ -141,7 +141,7 @@ export default function Dashboard() {
             </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12}>
+        <Col xs={24} sm={8}>
           <Card title="磁盘（数据目录）">
             <div style={{ textAlign: 'center' }}>
               <Progress type="dashboard" percent={Math.round(diskPercent)} size={160} />
