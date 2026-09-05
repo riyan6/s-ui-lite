@@ -9,6 +9,7 @@ import Inbounds from './pages/Inbounds'
 import Outbounds from './pages/Outbounds'
 import Routing from './pages/Routing'
 import Dns from './pages/Dns'
+import Services from './pages/Services'
 import Runtime from './pages/Runtime'
 import Settings from './pages/Settings'
 
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="/outbounds" element={<Outbounds />} />
         <Route path="/routing" element={<Routing />} />
         <Route path="/dns" element={<Dns />} />
+        <Route path="/services" element={<Services />} />
         <Route path="/runtime" element={<Runtime />} />
         <Route path="/logs" element={<Navigate to="/runtime" replace />} />
         <Route path="/settings" element={<Settings />} />

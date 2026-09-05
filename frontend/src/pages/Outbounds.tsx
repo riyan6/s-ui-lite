@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Card, Table, Button, Space, Switch, Tag, Popconfirm, Modal, Form, Input, InputNumber, Select, App as AntdApp, Typography, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, KeyOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 import type { Outbound } from '../api/types'
 import { parseExtraJSON } from '../utils/format'
@@ -13,6 +13,7 @@ const TYPES = [
   { label: 'block（阻断）', value: 'block' },
   { label: 'shadowsocks（SS 链式代理）', value: 'shadowsocks' },
   { label: 'socks（SOCKS 链式代理）', value: 'socks' },
+  { label: 'snell（Snell 链式代理，1.14+）', value: 'snell' },
 ]
 
 const SS_METHODS = [
@@ -29,18 +30,23 @@ const typeColor: Record<string, string> = {
   block: 'red',
   shadowsocks: 'blue',
   socks: 'geekblue',
+  snell: 'cyan',
 }
 
 interface FormValues {
   tag: string
   type: string
   enabled: boolean
-  // shadowsocks / socks
+  // shadowsocks / socks / snell
   server?: string
   server_port?: number
   method?: string
   password?: string
-  version?: string
+  version?: string // socks 版本
+  snell_version?: number // snell 协议版本
+  psk?: string
+  mode?: string // snell v6
+  obfs_mode?: string // snell v5
   username?: string
   network?: string
   extra?: string
@@ -55,6 +61,7 @@ export default function Outbounds() {
   const [saving, setSaving] = useState(false)
   const [form] = Form.useForm<FormValues>()
   const type = Form.useWatch('type', form)
+  const snellVersion = Form.useWatch('snell_version', form)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -88,7 +95,9 @@ export default function Outbounds() {
     setEditing(ob)
     const cfg = ob.config
     // 把已知字段抽出来，剩余的放进 extra JSON
-    const known = new Set(['server', 'server_port', 'method', 'password', 'version', 'username', 'network'])
+    const known = new Set([
+      'server', 'server_port', 'method', 'password', 'version', 'username', 'network', 'psk', 'mode', 'obfs_mode',
+    ])
     const rest: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(cfg)) {
       if (!known.has(k)) rest[k] = v
@@ -102,6 +111,10 @@ export default function Outbounds() {
       method: typeof cfg.method === 'string' ? cfg.method : undefined,
       password: typeof cfg.password === 'string' ? cfg.password : undefined,
       version: typeof cfg.version === 'string' ? cfg.version : undefined,
+      snell_version: typeof cfg.version === 'number' ? cfg.version : undefined,
+      psk: typeof cfg.psk === 'string' ? cfg.psk : undefined,
+      mode: typeof cfg.mode === 'string' ? cfg.mode : undefined,
+      obfs_mode: typeof cfg.obfs_mode === 'string' ? cfg.obfs_mode : undefined,
       username: typeof cfg.username === 'string' ? cfg.username : undefined,
       network: typeof cfg.network === 'string' ? cfg.network : undefined,
       extra: Object.keys(rest).length ? JSON.stringify(rest, null, 2) : undefined,
@@ -129,6 +142,16 @@ export default function Outbounds() {
       if (v.version) config.version = v.version
       if (v.username) config.username = v.username
       if (v.password) config.password = v.password
+    } else if (v.type === 'snell') {
+      config.server = v.server
+      config.server_port = v.server_port
+      config.version = v.snell_version
+      config.psk = v.psk
+      if (v.snell_version === 5) {
+        if (v.obfs_mode) config.obfs_mode = v.obfs_mode
+      } else if (v.mode) {
+        config.mode = v.mode
+      }
     }
     if (v.network) config.network = v.network
 
@@ -177,7 +200,17 @@ export default function Outbounds() {
     if (typeof cfg.server_port === 'number') parts.push(String(cfg.server_port))
     if (typeof cfg.method === 'string') parts.push(cfg.method)
     if (typeof cfg.version === 'string') parts.push('v' + cfg.version)
+    if (typeof cfg.version === 'number') parts.push('v' + cfg.version)
     return parts.join(' : ')
+  }
+
+  const genSnellPSK = async () => {
+    try {
+      const r = await api.get<{ psk: string }>('/tools/snell-psk')
+      form.setFieldsValue({ psk: r.psk })
+    } catch (e) {
+      message.error((e as Error).message)
+    }
   }
 
   return (
@@ -260,7 +293,13 @@ export default function Outbounds() {
             </Col>
             <Col span={10}>
               <Form.Item name="type" label="类型" rules={[{ required: true }]}>
-                <Select options={TYPES} disabled={!!editing} />
+                <Select
+                  options={TYPES}
+                  disabled={!!editing}
+                  onChange={(v) => {
+                    if (v === 'snell') form.setFieldsValue({ snell_version: 6, mode: undefined, obfs_mode: undefined })
+                  }}
+                />
               </Form.Item>
             </Col>
             <Col span={4}>
@@ -270,7 +309,7 @@ export default function Outbounds() {
             </Col>
           </Row>
 
-          {(type === 'shadowsocks' || type === 'socks') && (
+          {(type === 'shadowsocks' || type === 'socks' || type === 'snell') && (
             <>
               <Row gutter={16}>
                 <Col span={12}>
@@ -278,23 +317,25 @@ export default function Outbounds() {
                     <Input placeholder="上游代理地址" allowClear />
                   </Form.Item>
                 </Col>
-                <Col span={6}>
+                <Col span={type === 'snell' ? 12 : 6}>
                   <Form.Item name="server_port" label="端口" rules={[{ required: true, message: '请输入端口' }]}>
                     <InputNumber min={1} max={65535} controls={false} style={{ width: '100%' }} placeholder="端口" />
                   </Form.Item>
                 </Col>
-                <Col span={6}>
-                  <Form.Item name="network" label="网络（可选）">
-                    <Select
-                      allowClear
-                      placeholder="默认"
-                      options={[
-                        { label: 'TCP', value: 'tcp' },
-                        { label: 'UDP', value: 'udp' },
-                      ]}
-                    />
-                  </Form.Item>
-                </Col>
+                {type !== 'snell' && (
+                  <Col span={6}>
+                    <Form.Item name="network" label="网络（可选）">
+                      <Select
+                        allowClear
+                        placeholder="默认"
+                        options={[
+                          { label: 'TCP', value: 'tcp' },
+                          { label: 'UDP', value: 'udp' },
+                        ]}
+                      />
+                    </Form.Item>
+                  </Col>
+                )}
               </Row>
               {type === 'shadowsocks' && (
                 <Row gutter={16}>
@@ -332,6 +373,56 @@ export default function Outbounds() {
                     </Form.Item>
                   </Col>
                 </Row>
+              )}
+              {type === 'snell' && (
+                <Row gutter={16}>
+                  <Col span={6}>
+                    <Form.Item name="snell_version" label="协议版本" rules={[{ required: true, message: '请选择版本' }]}>
+                      <Select
+                        options={[
+                          { label: 'v6', value: 6 },
+                          { label: 'v5', value: 5 },
+                        ]}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={18}>
+                    <Form.Item
+                      name={snellVersion === 5 ? 'obfs_mode' : 'mode'}
+                      label={snellVersion === 5 ? '混淆模式 obfs_mode' : '流量整形 mode'}
+                    >
+                      <Select
+                        allowClear
+                        placeholder={snellVersion === 5 ? '默认 none' : '默认 default'}
+                        options={
+                          snellVersion === 5
+                            ? [
+                                { label: 'none', value: 'none' },
+                                { label: 'http', value: 'http' },
+                              ]
+                            : [
+                                { label: 'default', value: 'default' },
+                                { label: 'unshaped', value: 'unshaped' },
+                                { label: 'unsafe-raw', value: 'unsafe-raw' },
+                              ]
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              )}
+              {type === 'snell' && (
+                <Form.Item
+                  name="psk"
+                  label="预共享密钥 PSK"
+                  rules={[{ required: true, message: '请输入 PSK' }]}
+                >
+                  <Input.Password
+                    placeholder="服务端 psk 或用户 userkey"
+                    allowClear
+                    suffix={<Button type="text" size="small" icon={<KeyOutlined />} onClick={genSnellPSK} />}
+                  />
+                </Form.Item>
               )}
               <Form.Item name="extra" label="额外字段（JSON 对象，合并进配置，可选）">
                 <Input.TextArea rows={3} placeholder='如 {"udp_over_tcp": true}' />

@@ -92,10 +92,24 @@ type DnsRule struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// Service sing-box 服务（顶层 services 数组，sing-box 1.12+）。
+// Type: api / ccm / ocm / derp / hysteria-realm / resolved / ssm-api / usbip-server / usbip-client。
+// Config 存除 type/tag 外的字段（listen、secret、dashboard 等），结构与服务文档一一对应。
+type Service struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Tag       string    `gorm:"uniqueIndex;size:128" json:"tag"`
+	Type      string    `gorm:"size:32;index" json:"type"`
+	Enabled   bool      `json:"enabled"`
+	Config    string    `gorm:"type:text" json:"config"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // AllModels 返回需要自动迁移的全部模型
 func AllModels() []any {
 	return []any{
 		&Setting{}, &Inbound{}, &Client{}, &Outbound{},
 		&RouteRule{}, &RouteRuleSet{}, &DnsServer{}, &DnsRule{},
+		&Service{},
 	}
 }

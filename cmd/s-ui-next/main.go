@@ -19,8 +19,9 @@ import (
 	"s-ui-next/internal/service/configgen"
 )
 
-// Version 构建时通过 -ldflags "-X main.Version=x.y.z" 注入
-var Version = "0.1.0"
+// Version 构建时通过 -ldflags "-X main.Version=x.y.z" 注入。
+// 版本号与适配的 sing-box 核心版本保持一致（如 1.14.0 适配 sing-box 1.14.0）。
+var Version = "1.14.0"
 
 func main() {
 	showVersion := flag.Bool("version", false, "输出版本号后退出")

@@ -77,6 +77,7 @@ func (h *Handler) SetupRouter() *gin.Engine {
 	authed.GET("/tools/reality-keypair", h.toolRealityKeypair)
 	authed.GET("/tools/reality-pubkey", h.toolRealityPubkey)
 	authed.GET("/tools/short-id", h.toolShortID)
+	authed.GET("/tools/snell-psk", h.toolSnellPSK)
 
 	authed.GET("/inbounds", h.listInbounds)
 	authed.POST("/inbounds", h.createInbound)
@@ -116,6 +117,11 @@ func (h *Handler) SetupRouter() *gin.Engine {
 	authed.PUT("/dns/rules/order", h.orderDnsRules)
 	authed.GET("/dns/settings", h.getDnsSettings)
 	authed.PUT("/dns/settings", h.putDnsSettings)
+
+	authed.GET("/services", h.listServices)
+	authed.POST("/services", h.createService)
+	authed.PUT("/services/:id", h.updateService)
+	authed.DELETE("/services/:id", h.deleteService)
 
 	r.NoRoute(h.serveWeb)
 	return r

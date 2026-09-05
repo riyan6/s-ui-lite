@@ -12,13 +12,13 @@
 #
 # 环境变量:
 #   GITHUB_REPO        面板 release 所在仓库（默认值请改为你的仓库，格式 user/repo）
-#   CORE_VERSION       sing-box 版本（默认 1.13.19）
+#   CORE_VERSION       sing-box 版本（默认 1.14.0）
 #
 set -euo pipefail
 
 # ========================= 可配置项 =========================
 GITHUB_REPO="${GITHUB_REPO:-riyan6/s-ui-lite}"   # 面板 Release 所在仓库
-CORE_VERSION="${CORE_VERSION:-1.13.19}"
+CORE_VERSION="${CORE_VERSION:-1.14.0}"
 # ============================================================
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; BLUE='\033[0;36m'; PLAIN='\033[0m'
@@ -63,7 +63,7 @@ download() {
     fi
 }
 
-# github_latest_tag  获取面板最新版本号（如 v0.1.0）
+# github_latest_tag  获取面板最新版本号（如 v1.14.0）
 github_latest_tag() {
     download "https://api.github.com/repos/${GITHUB_REPO}/releases/latest" "/tmp/suin-release.json" 2>/dev/null || return 1
     grep -oP '"tag_name":\s*"\K[^"]+' /tmp/suin-release.json | head -1
@@ -80,7 +80,7 @@ install_panel() {
         return
     fi
     if [[ -z "$version" ]]; then
-        version="$(github_latest_tag)" || error "无法获取最新版本，请手动指定: bash install.sh install v0.1.0"
+        version="$(github_latest_tag)" || error "无法获取最新版本，请手动指定: bash install.sh install v1.14.0"
     fi
     [[ "$version" == v* ]] || version="v$version"
     local arch; arch="$(detect_arch)"

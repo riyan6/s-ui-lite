@@ -12,6 +12,15 @@ const { Text } = Typography
 const typeColor: Record<string, string> = {
   shadowsocks: 'blue',
   vless: 'purple',
+  snell: 'cyan',
+  cloudflared: 'orange',
+}
+
+const typeLabel: Record<string, string> = {
+  shadowsocks: 'Shadowsocks',
+  vless: 'VLESS-Reality',
+  snell: 'Snell',
+  cloudflared: 'CF Tunnel',
 }
 
 export default function Inbounds() {
@@ -92,7 +101,7 @@ export default function Inbounds() {
           expandedRowKeys: expandedKeys,
           onExpandedRowsChange: setExpandedKeys,
           expandedRowRender: (record) => <ClientTable inbound={record} onChanged={load} />,
-          rowExpandable: () => true,
+          rowExpandable: (record) => record.type !== 'cloudflared',
         }}
         columns={[
           { title: 'Tag', dataIndex: 'tag', width: 180 },
@@ -102,23 +111,27 @@ export default function Inbounds() {
             width: 130,
             render: (v: string) => (
               <Tag color={typeColor[v] ?? 'default'} style={{ margin: 0 }}>
-                {v === 'vless' ? 'VLESS-Reality' : v}
+                {typeLabel[v] ?? v}
               </Tag>
             ),
           },
           {
             title: '监听',
             width: 200,
-            render: (_, r) => (
-              <Text code>
-                {r.listen || '::'}:{r.port}
-              </Text>
-            ),
+            render: (_, r) =>
+              r.type === 'cloudflared' ? (
+                <Text type="secondary">Cloudflare Tunnel</Text>
+              ) : (
+                <Text code>
+                  {r.listen || '::'}:{r.port}
+                </Text>
+              ),
           },
           {
             title: '客户端',
             width: 120,
             render: (_, r) => {
+              if (r.type === 'cloudflared') return <Text type="secondary">—</Text>
               const cs = r.clients ?? []
               return (
                 <Button type="link" size="small" style={{ padding: 0 }} onClick={() => toggleExpand(r.id)}>

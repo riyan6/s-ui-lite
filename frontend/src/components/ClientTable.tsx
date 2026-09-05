@@ -62,6 +62,9 @@ export default function ClientTable({ inbound, onChanged }: Props) {
       if (inbound.type === 'vless') {
         const r = await api.get<{ uuid: string }>('/tools/uuid')
         form.setFieldsValue({ credential: r.uuid })
+      } else if (inbound.type === 'snell') {
+        const r = await api.get<{ psk: string }>('/tools/snell-psk')
+        form.setFieldsValue({ credential: r.psk })
       } else {
         const method = String(inbound.config.method ?? '')
         const r = await api.get<{ key: string }>('/tools/ss-key', { method })
@@ -188,7 +191,9 @@ export default function ClientTable({ inbound, onChanged }: Props) {
           <Form.Item name="name" label="名称" rules={[{ required: true }]}>
             <Input placeholder="客户端备注名" />
           </Form.Item>
-          <Form.Item label={inbound.type === 'vless' ? 'UUID（留空自动生成）' : '密钥（留空自动生成）'}>
+          <Form.Item
+            label={inbound.type === 'vless' ? 'UUID（留空自动生成）' : inbound.type === 'snell' ? 'Userkey（留空自动生成）' : '密钥（留空自动生成）'}
+          >
             <Space.Compact style={{ width: '100%' }}>
               <Form.Item name="credential" noStyle>
                 <Input placeholder="留空自动生成" />

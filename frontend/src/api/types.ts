@@ -14,7 +14,7 @@ export interface Client {
 export interface Inbound {
   id: number
   tag: string
-  type: 'shadowsocks' | 'vless'
+  type: 'shadowsocks' | 'vless' | 'snell' | 'cloudflared'
   listen: string
   port: number
   enabled: boolean
@@ -27,7 +27,18 @@ export interface Inbound {
 export interface Outbound {
   id: number
   tag: string
-  type: 'direct' | 'block' | 'shadowsocks' | 'socks'
+  type: 'direct' | 'block' | 'shadowsocks' | 'socks' | 'snell'
+  enabled: boolean
+  config: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+// sing-box 服务（顶层 services，如 sing-box API 服务）
+export interface Service {
+  id: number
+  tag: string
+  type: string
   enabled: boolean
   config: Record<string, unknown>
   created_at: string

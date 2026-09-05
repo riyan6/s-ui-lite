@@ -22,7 +22,7 @@ import (
 const (
 	// AdaptedCoreLine 面板已适配的 sing-box 版本线（大.小），升级适配时只需改这里。
 	// 其他版本线的稳定版仍会列出并标记为“未适配”，由用户自行选择。
-	AdaptedCoreLine = "1.13"
+	AdaptedCoreLine = "1.14"
 
 	// maxListedVersions 版本列表最多展示的条数
 	maxListedVersions = 20
@@ -34,7 +34,7 @@ const (
 // stableVersionRegexp 合法的稳定版 tag（纯 semver，无预发布后缀）
 var stableVersionRegexp = regexp.MustCompile(`^v\d+\.\d+\.\d+$`)
 
-// adaptedVersionRegexp 属于适配版本线的 tag：v1.13.x
+// adaptedVersionRegexp 属于适配版本线的 tag：v1.14.x
 var adaptedVersionRegexp = regexp.MustCompile(`^v` + strings.ReplaceAll(AdaptedCoreLine, ".", `\.`) + `\.\d+$`)
 
 // CoreRelease 一个可用的核心版本

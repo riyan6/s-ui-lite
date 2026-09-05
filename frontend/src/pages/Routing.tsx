@@ -629,7 +629,12 @@ function RuleSetsTab() {
                 <Form.Item name="update_interval" label="更新间隔（可选）" style={{ width: 200 }}>
                   <Input placeholder="默认 1d" />
                 </Form.Item>
-                <Form.Item name="download_detour" label="下载经由出站（可选）" style={{ width: 220 }}>
+                <Form.Item
+                  name="download_detour"
+                  label="下载经由出站（可选）"
+                  style={{ width: 220 }}
+                  tooltip="已弃用：sing-box 1.14 起建议改用 http_clients + route.default_http_client，1.16 将移除"
+                >
                   <Input placeholder="出站 tag" />
                 </Form.Item>
               </Space>

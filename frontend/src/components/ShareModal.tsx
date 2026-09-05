@@ -38,6 +38,7 @@ export default function ShareModal({ open, onClose, inbound, client }: Props) {
   const [host, setHost] = useState('')
   const [port, setPort] = useState<number>(0)
   const [uri, setUri] = useState('')
+  const [snippet, setSnippet] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -75,11 +76,28 @@ export default function ShareModal({ open, onClose, inbound, client }: Props) {
   useEffect(() => {
     if (!inbound || !client || !host || !port) {
       setUri('')
+      setSnippet('')
       return
     }
     if (inbound.type === 'shadowsocks') {
+      setSnippet('')
       const method = String(inbound.config.method ?? '')
       setUri(`ss://${b64url(`${method}:${client.credential}`)}@${host}:${port}#${encodeURIComponent(client.name)}`)
+    } else if (inbound.type === 'snell') {
+      // Snell 无统一 URI 分享格式，输出 sing-box 客户端出站配置片段
+      setUri('')
+      const cfg = inbound.config
+      const outbound: Record<string, unknown> = {
+        type: 'snell',
+        tag: client.name,
+        server: host,
+        server_port: port,
+        version: typeof cfg.version === 'number' ? cfg.version : 6,
+        psk: client.credential,
+      }
+      if (typeof cfg.mode === 'string' && cfg.mode) outbound.mode = cfg.mode
+      if (typeof cfg.obfs_mode === 'string' && cfg.obfs_mode) outbound.obfs_mode = cfg.obfs_mode
+      setSnippet(JSON.stringify(outbound, null, 2))
     } else {
       if (!pubKey) {
         setUri('')
@@ -134,6 +152,28 @@ export default function ShareModal({ open, onClose, inbound, client }: Props) {
           </Paragraph>
           <Paragraph style={{ wordBreak: 'break-all', fontSize: 12 }}>
             <Text code>{uri}</Text>
+          </Paragraph>
+        </>
+      )}
+      {!uri && snippet && (
+        <>
+          <Paragraph copyable={{ text: snippet }} style={{ marginBottom: 4 }}>
+            <Text type="secondary">Snell 无统一分享链接，复制以下 sing-box 客户端出站配置：</Text>
+          </Paragraph>
+          <Paragraph style={{ margin: 0 }}>
+            <pre
+              style={{
+                margin: 0,
+                padding: 10,
+                borderRadius: 6,
+                fontSize: 12,
+                background: 'var(--ant-color-fill-quaternary)',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+              }}
+            >
+              {snippet}
+            </pre>
           </Paragraph>
         </>
       )}

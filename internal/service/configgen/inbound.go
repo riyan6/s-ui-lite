@@ -14,6 +14,8 @@ import (
 const (
 	InboundTypeShadowsocks = "shadowsocks"
 	InboundTypeVless       = "vless"
+	InboundTypeSnell       = "snell"
+	InboundTypeCloudflared = "cloudflared"
 )
 
 // ss2022 系加密方式与密钥字节长度对照
@@ -22,6 +24,12 @@ var ss2022KeyLengths = map[string]int{
 	"2022-blake3-aes-256-gcm":          32,
 	"2022-blake3-chacha20-poly1305":    32,
 }
+
+// snell 协议版本与对应字段名（v5 用 obfs_mode，v6 改用 mode）
+const (
+	snellVersionV5 = 5
+	snellVersionV6 = 6
+)
 
 func buildInbounds(db *gorm.DB) ([]map[string]any, error) {
 	var rows []model.Inbound
@@ -35,27 +43,42 @@ func buildInbounds(db *gorm.DB) ([]map[string]any, error) {
 		if row.Tag == "" {
 			return nil, fmt.Errorf("入站 #%d 缺少 tag", row.ID)
 		}
-		if row.Port < 1 || row.Port > 65535 {
-			return nil, fmt.Errorf("入站 [%s] 端口 %d 无效", row.Tag, row.Port)
-		}
-		if prev, dup := usedPorts[row.Port]; dup {
-			return nil, fmt.Errorf("入站 [%s] 与 [%s] 端口 %d 冲突", row.Tag, prev, row.Port)
-		}
-		usedPorts[row.Port] = row.Tag
-
-		clients, err := activeClients(db, row.ID)
-		if err != nil {
-			return nil, err
+		// cloudflared 是隧道入站（主动连接 Cloudflare edge），无端口监听
+		if row.Type != InboundTypeCloudflared {
+			if row.Port < 1 || row.Port > 65535 {
+				return nil, fmt.Errorf("入站 [%s] 端口 %d 无效", row.Tag, row.Port)
+			}
+			if prev, dup := usedPorts[row.Port]; dup {
+				return nil, fmt.Errorf("入站 [%s] 与 [%s] 端口 %d 冲突", row.Tag, prev, row.Port)
+			}
+			usedPorts[row.Port] = row.Tag
 		}
 
 		var inbound map[string]any
+		var err error
 		switch row.Type {
 		case InboundTypeShadowsocks:
+			clients, clientsErr := activeClients(db, row.ID)
+			if clientsErr != nil {
+				return nil, clientsErr
+			}
 			inbound, err = buildShadowsocks(&row, clients)
 		case InboundTypeVless:
+			clients, clientsErr := activeClients(db, row.ID)
+			if clientsErr != nil {
+				return nil, clientsErr
+			}
 			inbound, err = buildVless(&row, clients)
+		case InboundTypeSnell:
+			clients, clientsErr := activeClients(db, row.ID)
+			if clientsErr != nil {
+				return nil, clientsErr
+			}
+			inbound, err = buildSnell(&row, clients)
+		case InboundTypeCloudflared:
+			inbound, err = buildCloudflared(&row)
 		default:
-			err = fmt.Errorf("入站 [%s] 类型 %q 不受支持（当前支持 shadowsocks / vless）", row.Tag, row.Type)
+			err = fmt.Errorf("入站 [%s] 类型 %q 不受支持（当前支持 shadowsocks / vless / snell / cloudflared）", row.Tag, row.Type)
 		}
 		if err != nil {
 			return nil, err
@@ -230,4 +253,72 @@ func parseMeta(raw string) map[string]any {
 		return nil
 	}
 	return meta
+}
+
+// buildSnell 组装 Snell 入站（sing-box 1.14+）。
+// config 存 version / psk / obfs_mode(v5) / mode(v6)；客户端凭证即多用户 userkey。
+func buildSnell(row *model.Inbound, clients []model.Client) (map[string]any, error) {
+	cfg, err := parseConfigObject(fmt.Sprintf("入站 [%s]", row.Tag), row.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	version, _ := cfg["version"].(float64)
+	if version != snellVersionV5 && version != snellVersionV6 {
+		return nil, fmt.Errorf("入站 [%s] 的 version 必须是 5 或 6", row.Tag)
+	}
+
+	psk, _ := cfg["psk"].(string)
+	if psk == "" {
+		return nil, fmt.Errorf("入站 [%s] 缺少预共享密钥 psk", row.Tag)
+	}
+	// sing-box 要求 v6 psk 长度 12-255 字节
+	if version == snellVersionV6 && (len(psk) < 12 || len(psk) > 255) {
+		return nil, fmt.Errorf("入站 [%s] 的 psk 长度需在 12-255 字节之间", row.Tag)
+	}
+
+	// 版本专属字段校验：v5 用 obfs_mode（HTTP 混淆），v6 用 mode（流量整形）
+	if version == snellVersionV6 {
+		if _, exists := cfg["obfs_mode"]; exists {
+			return nil, fmt.Errorf("入站 [%s] 为 v6，obfs_mode 仅适用于 v5（应使用 mode）", row.Tag)
+		}
+	} else {
+		if _, exists := cfg["mode"]; exists {
+			return nil, fmt.Errorf("入站 [%s] 为 v5，mode 仅适用于 v6（应使用 obfs_mode）", row.Tag)
+		}
+	}
+
+	users := make([]map[string]any, 0, len(clients))
+	for _, c := range clients {
+		if c.Name == "" {
+			return nil, fmt.Errorf("入站 [%s] 存在未命名客户端 #%d", row.Tag, c.ID)
+		}
+		if c.Credential == "" {
+			return nil, fmt.Errorf("入站 [%s] 客户端 [%s] 缺少 userkey", row.Tag, c.Name)
+		}
+		users = append(users, map[string]any{"name": c.Name, "userkey": c.Credential})
+	}
+
+	inbound := inboundBase(row)
+	mergeInto(inbound, cfg, "type", "tag", "listen", "listen_port")
+	if len(users) > 0 {
+		inbound["users"] = users
+	}
+	return inbound, nil
+}
+
+// buildCloudflared 组装 cloudflared 隧道入站（sing-box 1.14+）。
+// 无 listen/listen_port；config 存 token（必填）及 protocol / post_quantum 等可选字段。
+func buildCloudflared(row *model.Inbound) (map[string]any, error) {
+	cfg, err := parseConfigObject(fmt.Sprintf("入站 [%s]", row.Tag), row.Config)
+	if err != nil {
+		return nil, err
+	}
+	token, _ := cfg["token"].(string)
+	if token == "" {
+		return nil, fmt.Errorf("入站 [%s] 缺少 Cloudflare Tunnel 的 token", row.Tag)
+	}
+	inbound := map[string]any{"type": row.Type, "tag": row.Tag}
+	mergeInto(inbound, cfg, "type", "tag", "listen", "listen_port")
+	return inbound, nil
 }

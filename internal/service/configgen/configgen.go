@@ -56,6 +56,15 @@ func Generate(db *gorm.DB) ([]byte, error) {
 		cfg["dns"] = dns
 	}
 
+	// services（sing-box API 等服务，1.14+ 提供 api 类型）
+	services, err := buildServices(db)
+	if err != nil {
+		return nil, err
+	}
+	if len(services) > 0 {
+		cfg["services"] = services
+	}
+
 	// route
 	// sing-box 1.12+ 要求 DNS 模块启用时必须设置 route.default_domain_resolver，
 	// 面板默认取第一个 DNS 服务器，用户可在路由全局设置中覆盖。

@@ -13,6 +13,7 @@ var supportedOutboundTypes = map[string]bool{
 	"block":       true,
 	"shadowsocks": true,
 	"socks":       true,
+	"snell":       true, // sing-box 1.14+
 }
 
 func buildOutbounds(db *gorm.DB) ([]map[string]any, error) {
@@ -27,7 +28,7 @@ func buildOutbounds(db *gorm.DB) ([]map[string]any, error) {
 			return nil, fmt.Errorf("出站 #%d 缺少 tag", row.ID)
 		}
 		if !supportedOutboundTypes[row.Type] {
-			return nil, fmt.Errorf("出站 [%s] 类型 %q 不受支持（当前支持 direct/block/shadowsocks/socks；dns 出站已在 sing-box 1.13 移除，改用 hijack-dns 规则动作）", row.Tag, row.Type)
+			return nil, fmt.Errorf("出站 [%s] 类型 %q 不受支持（当前支持 direct/block/shadowsocks/socks/snell；dns 出站已在 sing-box 1.13 移除，改用 hijack-dns 规则动作）", row.Tag, row.Type)
 		}
 		cfg, err := parseConfigObject(fmt.Sprintf("出站 [%s]", row.Tag), row.Config)
 		if err != nil {
@@ -54,6 +55,19 @@ func buildOutbounds(db *gorm.DB) ([]map[string]any, error) {
 			}
 			if p, ok := cfg["server_port"].(float64); !ok || p < 1 || p > 65535 {
 				return nil, fmt.Errorf("出站 [%s] 缺少有效的 server_port", row.Tag)
+			}
+		case "snell":
+			if v, _ := cfg["server"].(string); v == "" {
+				return nil, fmt.Errorf("出站 [%s] 缺少 server", row.Tag)
+			}
+			if p, ok := cfg["server_port"].(float64); !ok || p < 1 || p > 65535 {
+				return nil, fmt.Errorf("出站 [%s] 缺少有效的 server_port", row.Tag)
+			}
+			if v, _ := cfg["version"].(float64); v != 5 && v != 6 {
+				return nil, fmt.Errorf("出站 [%s] 的 version 必须是 5 或 6", row.Tag)
+			}
+			if k, _ := cfg["psk"].(string); k == "" {
+				return nil, fmt.Errorf("出站 [%s] 缺少预共享密钥 psk", row.Tag)
 			}
 		}
 

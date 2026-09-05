@@ -5,6 +5,7 @@ import {
   SendOutlined,
   NodeIndexOutlined,
   GlobalOutlined,
+  ClusterOutlined,
   MonitorOutlined,
   SettingOutlined,
   MenuFoldOutlined,
@@ -28,6 +29,7 @@ const menuItems = [
   { key: '/outbounds', icon: <SendOutlined />, label: '出站管理' },
   { key: '/routing', icon: <NodeIndexOutlined />, label: '路由管理' },
   { key: '/dns', icon: <GlobalOutlined />, label: 'DNS 管理' },
+  { key: '/services', icon: <ClusterOutlined />, label: '服务管理' },
   { key: '/runtime', icon: <MonitorOutlined />, label: '运行管理' },
   { key: '/settings', icon: <SettingOutlined />, label: '面板设置' },
 ]

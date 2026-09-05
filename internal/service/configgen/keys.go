@@ -47,6 +47,16 @@ func GenShortID() string {
 	return hex.EncodeToString(raw)
 }
 
+// GenSnellPSK 生成 Snell 预共享密钥（32 字节随机数的 base64，44 字符，
+// 满足 v6 对 psk 12-255 字节的长度要求）
+func GenSnellPSK() string {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(raw)
+}
+
 // RealityPublicKey 从 Reality 私钥推导公钥（客户端分享链接需要公钥，
 // 浏览器端无法做 X25519 推导，由面板代劳）
 func RealityPublicKey(privateKey string) (string, error) {

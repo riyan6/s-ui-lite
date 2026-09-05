@@ -221,7 +221,7 @@ export default function Settings() {
               </Text>
               <Text>
                 已适配版本线：
-                <Text code>{coreInfo?.adapted_line ?? '1.13'}.x</Text>
+                <Text code>{coreInfo?.adapted_line ?? '1.14'}.x</Text>
               </Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 仅列出官方稳定版（排除预发布）；非适配版本线请自行确认兼容性

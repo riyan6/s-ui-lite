@@ -25,6 +25,8 @@ type inboundPayload struct {
 var validInboundTypes = map[string]bool{
 	configgen.InboundTypeShadowsocks: true,
 	configgen.InboundTypeVless:       true,
+	configgen.InboundTypeSnell:       true,
+	configgen.InboundTypeCloudflared: true,
 }
 
 // listInbounds 返回入站列表（含各自的客户端）
@@ -86,10 +88,11 @@ func (h *Handler) createInbound(c *gin.Context) {
 		return
 	}
 	if payload.Type == nil || !validInboundTypes[*payload.Type] {
-		failStr(c, "入站类型无效（当前支持 shadowsocks / vless）")
+		failStr(c, "入站类型无效（当前支持 shadowsocks / vless / snell / cloudflared）")
 		return
 	}
-	if payload.Port == nil || *payload.Port < 1 || *payload.Port > 65535 {
+	isTunnel := *payload.Type == configgen.InboundTypeCloudflared
+	if !isTunnel && (payload.Port == nil || *payload.Port < 1 || *payload.Port > 65535) {
 		failStr(c, "入站端口无效")
 		return
 	}
@@ -100,9 +103,23 @@ func (h *Handler) createInbound(c *gin.Context) {
 	}
 
 	h.withPipeline(c, func(tx *gorm.DB) error {
+		// cloudflared 无端口监听，且因端口列存 0（唯一索引），面板限定单实例
+		if isTunnel {
+			var count int64
+			if err := tx.Model(&model.Inbound{}).Where("type = ?", configgen.InboundTypeCloudflared).Count(&count).Error; err != nil {
+				return err
+			}
+			if count > 0 {
+				return errors.New("cloudflared 隧道入站仅支持创建一个")
+			}
+		}
+		port := 0
+		if !isTunnel && payload.Port != nil {
+			port = *payload.Port
+		}
 		inbound := model.Inbound{
 			Tag: *payload.Tag, Type: *payload.Type, Listen: listen,
-			Port: *payload.Port, Enabled: enabled,
+			Port: port, Enabled: enabled,
 			Config: marshalConfig(orEmptyMap(payload.Config)),
 		}
 		if err := tx.Create(&inbound).Error; err != nil {
@@ -145,7 +162,7 @@ func createClientsFor(tx *gorm.DB, inbound *model.Inbound, clients *[]clientPayl
 	return nil
 }
 
-// generateCredential 按入站类型生成客户端凭证（VLESS → UUID；SS 2022 → 定长密钥）
+// generateCredential 按入站类型生成客户端凭证（VLESS → UUID；SS 2022 → 定长密钥；Snell → PSK）
 func generateCredential(inboundType, inboundConfigJSON string) (string, error) {
 	switch inboundType {
 	case configgen.InboundTypeVless:
@@ -156,6 +173,8 @@ func generateCredential(inboundType, inboundConfigJSON string) (string, error) {
 			method = m
 		}
 		return configgen.GenSSKey(method)
+	case configgen.InboundTypeSnell:
+		return configgen.GenSnellPSK(), nil
 	}
 	return "", errors.New("无法为该入站类型自动生成凭证")
 }
@@ -184,6 +203,18 @@ func (h *Handler) updateInbound(c *gin.Context) {
 		if payload.Type != nil {
 			if !validInboundTypes[*payload.Type] {
 				return errors.New("入站类型无效")
+			}
+			if *payload.Type != inbound.Type && *payload.Type == configgen.InboundTypeCloudflared {
+				// 改成 cloudflared 时同样受单实例限制
+				var count int64
+				if err := tx.Model(&model.Inbound{}).
+					Where("type = ? AND id <> ?", configgen.InboundTypeCloudflared, id).
+					Count(&count).Error; err != nil {
+					return err
+				}
+				if count > 0 {
+					return errors.New("cloudflared 隧道入站仅支持创建一个")
+				}
 			}
 			inbound.Type = *payload.Type
 		}
@@ -246,6 +277,9 @@ func (h *Handler) createClient(c *gin.Context) {
 		var inbound model.Inbound
 		if err := tx.First(&inbound, inboundID).Error; err != nil {
 			return errors.New("入站不存在")
+		}
+		if inbound.Type == configgen.InboundTypeCloudflared {
+			return errors.New("cloudflared 隧道入站没有客户端")
 		}
 
 		credential := ""

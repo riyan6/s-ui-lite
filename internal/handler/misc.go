@@ -178,3 +178,8 @@ func (h *Handler) toolRealityPubkey(c *gin.Context) {
 func (h *Handler) toolShortID(c *gin.Context) {
 	ok(c, gin.H{"short_id": configgen.GenShortID()}, "")
 }
+
+// toolSnellPSK 生成 Snell 预共享密钥（服务端 psk 与客户端 userkey 通用）
+func (h *Handler) toolSnellPSK(c *gin.Context) {
+	ok(c, gin.H{"psk": configgen.GenSnellPSK()}, "")
+}
